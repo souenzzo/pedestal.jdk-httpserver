@@ -10,6 +10,11 @@ Develop a low-dependency http(s) backend for pedestal, using the build-in JDK se
 # Usage
 
 ```clojure
+br.dev.zz/pedestal.jdk-httpserver {:git/url "https://github.com/souenzzo/pedestal.jdk-httpserver"
+                                   :git/sha "773ef40dc794899e61daf960925a3dd75afd4e9e"}
+```
+
+```clojure
 (require '[br.dev.zz.pedestal.jdk-httpserver :as jh]
   '[io.pedestal.http :as http])
 (-> {::http/type   jh/server
