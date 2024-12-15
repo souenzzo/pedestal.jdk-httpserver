@@ -30,6 +30,7 @@
           (close []
             ;; maybe close here?
             #_(AutoCloseable/.close http-exchange)
+            (log/info :close :stdin)
             (AutoCloseable/.close @*in)))))
     (getRequestURI [this] (.getPath (HttpExchange/.getRequestURI http-exchange)))
     (getQueryString [this] (.getQuery (HttpExchange/.getRequestURI http-exchange)))
@@ -66,11 +67,7 @@
     (reify HttpServletResponse
       (getOutputStream [_] (proxy [ServletOutputStream] []
                              (write [b off len]
-                               (OutputStream/.write @*response-body b off len))
-                             #_(close []
-                                 ;; never called
-                                 #_(AutoCloseable/.close http-exchange)
-                                 (AutoCloseable/.close @*response-body))))
+                               (OutputStream/.write @*response-body b off len))))
       (setStatus [_ status] (reset! *status status))
       (getStatus [_] @*status)
       (getBufferSize [_] 0)
@@ -82,9 +79,9 @@
         (when content-type
           (Map/.put @*headers "Content-Type" [content-type])))
       (setContentLength [_ content-length]
-        (reset! *content-length (long content-length)))
+        (deliver *content-length (long content-length)))
       (setContentLengthLong [_ content-length]
-        (reset! *content-length (long content-length)))
+        (deliver *content-length (long content-length)))
       (flushBuffer [_]
         (OutputStream/.flush @*response-body)
         ;; TODO: Where to close?! - do not work with async!

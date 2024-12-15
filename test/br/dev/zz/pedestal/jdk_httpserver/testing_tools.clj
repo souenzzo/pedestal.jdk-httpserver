@@ -1,11 +1,12 @@
 (ns br.dev.zz.pedestal.jdk-httpserver.testing-tools
   (:refer-clojure :exclude [send])
   (:require [clojure.string :as string]
-            [ring.core.protocols]
-            [io.pedestal.http :as http])
+            [io.pedestal.http :as http]
+            [ring.core.protocols])
   (:import (java.lang AutoCloseable)
            (java.net URI)
-           (java.net.http HttpClient HttpClient$Version HttpHeaders HttpRequest HttpRequest$BodyPublisher HttpRequest$BodyPublishers HttpResponse HttpResponse$BodySubscribers HttpResponse$ResponseInfo)
+           (java.net.http HttpClient HttpClient$Builder HttpClient$Version HttpHeaders HttpRequest HttpResponse
+                          HttpResponse$BodySubscribers HttpResponse$ResponseInfo)
            (java.nio.charset StandardCharsets)
            (java.time Duration)
            (java.util Optional)))
@@ -15,7 +16,7 @@
 (def ^:dynamic *http-client
   (delay
     (-> (HttpClient/newBuilder)
-      (.connectTimeout (Duration/ofSeconds 2))
+      (HttpClient$Builder/.connectTimeout (Duration/ofSeconds 2))
       .build)))
 
 (defn http-request
@@ -68,21 +69,21 @@
                      [k (if (next v)
                           (vec v)
                           (first v))]))
-              (.map (HttpResponse/.headers http-response)))
+              (HttpHeaders/.map (HttpResponse/.headers http-response)))
    :status  (HttpResponse/.statusCode http-response)})
 
 (defn clean-headers
   [{:keys [headers] :as response}]
-  (let [headers' (dissoc headers "content-length" "date" ":status")]
+  (let [headers' (dissoc headers #_"content-length" "date" ":status")]
     (if (empty? headers')
       (dissoc response :headers)
       (assoc response :headers headers'))))
 
 (defn body-handler
   ([response-info]
-   (let [maybe-content-type (.firstValue (HttpResponse$ResponseInfo/.headers response-info) "Content-Type")]
-     (if (.isPresent maybe-content-type)
-       (case (.get maybe-content-type)
+   (let [maybe-content-type (HttpHeaders/.firstValue (HttpResponse$ResponseInfo/.headers response-info) "Content-Type")]
+     (if (Optional/.isPresent maybe-content-type)
+       (case (Optional/.get maybe-content-type)
          "text/plain"
          (HttpResponse$BodySubscribers/ofString StandardCharsets/UTF_8))
        (HttpResponse$BodySubscribers/ofString StandardCharsets/UTF_8)))))
