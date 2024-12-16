@@ -25,3 +25,17 @@ br.dev.zz/pedestal.jdk-httpserver {:git/url "https://github.com/souenzzo/pedesta
   http/create-server
   http/start)
 ```
+
+# Developing
+
+## Kondo
+
+```shell
+clojure -M:dev:kondo
+```
+
+## Test
+
+```shell
+clojure -M:dev:test-runner
+```
