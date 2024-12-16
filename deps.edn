@@ -1,7 +1,9 @@
 {:paths   ["src"]
  :deps    {io.pedestal/pedestal.service {:mvn/version "0.7.2"}}
  :aliases {:dev {:extra-paths ["dev" "test"]
+                 :jvm-opts    ["-Dclojure.core.async.go-checking=true"]
                  :extra-deps  {io.pedestal/pedestal.jetty {:mvn/version "0.7.2"}
                                org.slf4j/slf4j-simple     {:mvn/version "2.0.16"}
                                org.clojure/clojure        {:mvn/version "1.12.0"}
-                               clj-http/clj-http          {:mvn/version "3.13.0"}}}}}
+                               clj-http/clj-http          {:mvn/version "3.13.0"}
+                               org.clojure/core.async     {:mvn/version "1.6.681"}}}}}

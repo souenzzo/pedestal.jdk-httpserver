@@ -17,6 +17,7 @@
   (delay
     (-> (HttpClient/newBuilder)
       (HttpClient$Builder/.connectTimeout (Duration/ofSeconds 2))
+      (HttpClient$Builder/.version HttpClient$Version/HTTP_1_1)
       .build)))
 
 (defn http-request
