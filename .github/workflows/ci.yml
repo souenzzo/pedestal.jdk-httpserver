@@ -10,6 +10,13 @@ jobs:
     container: clojure:tools-deps-alpine
     steps:
       - uses: actions/checkout@v4.2.2
+      - uses: actions/cache@v4
+        with:
+          path: |
+            /root/.m2
+            /root/.gitlibs
+            .cpcache
+          key: "${{hashFiles('deps.edn')}}"
       - run: clojure -M:dev:test-runner
 
 ## docker run --rm  -v.:/app:ro "-v$HOME/.m2:/root/.m2:ro" "-v$HOME/.gitlibs:/root/.gitlibs:ro" -w/app --mount type=tmpfs,dst=/app/.cpcache  -ti clojure:tools-deps-alpine clojure -M:dev:test-runner
