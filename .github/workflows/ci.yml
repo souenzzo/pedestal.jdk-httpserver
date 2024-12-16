@@ -2,9 +2,9 @@ on: workflow_dispatch
 jobs:
   test-runner:
     runs-on: ubuntu-latest
-    # container:
-      # image: clojure:tools-deps-alpine
+    container:
+      image: clojure:tools-deps-alpine
     steps:
-      - run: find .
-      - run: env
+      - uses: actions/checkout@v3
+      - run: pwd && find . && env
       - run: clojure -M:dev:test-runner
