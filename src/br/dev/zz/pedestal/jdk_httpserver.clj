@@ -11,6 +11,8 @@
            (java.net InetSocketAddress)
            (java.util Collections Map)))
 
+(set! *warn-on-reflection* true)
+
 #_org.eclipse.jetty.server.Request
 (defn http-exchange->http-servlet-request
   [http-exchange]
@@ -39,7 +41,7 @@
         "https"
         "http"))
     (getServerName [this]
-      (str (or (.getHost (.getRequestURI http-exchange))
+      (str (or (.getHost (HttpExchange/.getRequestURI http-exchange))
              (some-> this (.getHeader "Host") (string/split #":") first))))
     (getContextPath [_this]
       (let [context-path (.getPath (HttpExchange/.getHttpContext http-exchange))]
@@ -91,17 +93,21 @@
 
 #_io.pedestal.http.jetty/create-server
 (defn create-server
-  [servlet {:keys [#_host port #_websockets container-options]}]
-  (let [http-handler (reify HttpHandler
+  [servlet {:keys [host port #_websockets container-options]}]
+  (let [{:keys [context-path configurator]
+         :or   {context-path "/"
+                configurator identity}} container-options
+        http-handler (reify HttpHandler
                        (handle [_this http-exchange]
                          (Servlet/.service servlet
                            (http-exchange->http-servlet-request http-exchange)
                            (http-exchange->http-servlet-response http-exchange))))
-        addr (InetSocketAddress. port)
+        addr (if (string? host)
+               (InetSocketAddress. ^String host (int port))
+               (InetSocketAddress. port))
         server (HttpServer/create addr 0)]
-    (HttpServer/.createContext server (:context-path container-options "/")
-      http-handler)
-    server))
+    (HttpServer/.createContext server context-path http-handler)
+    (configurator server)))
 
 #_io.pedestal.http.jetty/server
 (defn server
