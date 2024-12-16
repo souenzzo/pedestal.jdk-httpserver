@@ -98,9 +98,9 @@
                            (http-exchange->http-servlet-request http-exchange)
                            (http-exchange->http-servlet-response http-exchange))))
         addr (InetSocketAddress. port)
-        server (HttpServer/create addr 0 (:context-path container-options "/")
-                 http-handler
-                 (into-array Filter []))]
+        server (HttpServer/create addr 0)]
+    (HttpServer/.createContext server (:context-path container-options "/")
+      http-handler)
     server))
 
 #_io.pedestal.http.jetty/server
