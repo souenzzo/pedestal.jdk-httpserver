@@ -15,14 +15,14 @@
 (defn http-exchange->http-servlet-request
   [http-exchange]
   (reify HttpServletRequest
-    (getProtocol [this] (HttpExchange/.getProtocol http-exchange))
-    (getMethod [this] (HttpExchange/.getRequestMethod http-exchange))
+    (getProtocol [_this] (HttpExchange/.getProtocol http-exchange))
+    (getMethod [_this] (HttpExchange/.getRequestMethod http-exchange))
     (getContentLengthLong [this] (or (some-> this (.getHeader "Content-Length") parse-long)
                                    -1))
     (getContentType [this] (.getHeader this "Content-Type"))
-    (getAttribute [this _] nil)
-    (getCharacterEncoding [this] nil)
-    (getInputStream [this]
+    (getAttribute [_this _] nil)
+    (getCharacterEncoding [_this] nil)
+    (getInputStream [_this]
       (let [*in (delay (HttpExchange/.getRequestBody http-exchange))]
         (proxy [ServletInputStream] []
           (read [b off len]
@@ -32,27 +32,27 @@
             #_(AutoCloseable/.close http-exchange)
             (log/info :close :stdin)
             (AutoCloseable/.close @*in)))))
-    (getRequestURI [this] (.getPath (HttpExchange/.getRequestURI http-exchange)))
-    (getQueryString [this] (.getQuery (HttpExchange/.getRequestURI http-exchange)))
-    (getScheme [this]
+    (getRequestURI [_this] (.getPath (HttpExchange/.getRequestURI http-exchange)))
+    (getQueryString [_this] (.getQuery (HttpExchange/.getRequestURI http-exchange)))
+    (getScheme [_this]
       (if (instance? HttpsExchange http-exchange)
         "https"
         "http"))
     (getServerName [this]
       (str (or (.getHost (.getRequestURI http-exchange))
              (some-> this (.getHeader "Host") (string/split #":") first))))
-    (getContextPath [this]
+    (getContextPath [_this]
       (let [context-path (.getPath (HttpExchange/.getHttpContext http-exchange))]
         (case context-path
           "/" ""
           context-path)))
-    (isAsyncSupported [this] false)
-    (isAsyncStarted [this] false)
-    (getRemoteAddr [this] (.getHostAddress (.getAddress (HttpExchange/.getRemoteAddress http-exchange))))
-    (getServerPort [this] (.getPort (.getAddress (.getServer (HttpExchange/.getHttpContext http-exchange)))))
-    (getHeaderNames [this] (Collections/enumeration (.keySet (HttpExchange/.getRequestHeaders http-exchange))))
-    (getHeaders [this name] (Collections/enumeration (.get (HttpExchange/.getRequestHeaders http-exchange) name)))
-    (getHeader [this name] (first (.get (HttpExchange/.getRequestHeaders http-exchange) name)))))
+    (isAsyncSupported [_this] false)
+    (isAsyncStarted [_this] false)
+    (getRemoteAddr [_this] (.getHostAddress (.getAddress (HttpExchange/.getRemoteAddress http-exchange))))
+    (getServerPort [_this] (.getPort (.getAddress (.getServer (HttpExchange/.getHttpContext http-exchange)))))
+    (getHeaderNames [_this] (Collections/enumeration (.keySet (HttpExchange/.getRequestHeaders http-exchange))))
+    (getHeaders [_this name] (Collections/enumeration (.get (HttpExchange/.getRequestHeaders http-exchange) name)))
+    (getHeader [_this name] (first (.get (HttpExchange/.getRequestHeaders http-exchange) name)))))
 
 #_org.eclipse.jetty.server.Response
 #_io.pedestal.http.impl.servlet-interceptor/send-response
@@ -79,9 +79,9 @@
         (when content-type
           (Map/.put @*headers "Content-Type" [content-type])))
       (setContentLength [_ content-length]
-        (deliver *content-length (long content-length)))
+        (reset! *content-length (long content-length)))
       (setContentLengthLong [_ content-length]
-        (deliver *content-length (long content-length)))
+        (reset! *content-length (long content-length)))
       (flushBuffer [_]
         (OutputStream/.flush @*response-body)
         ;; TODO: Where to close?! - do not work with async!
@@ -91,7 +91,7 @@
 
 #_io.pedestal.http.jetty/create-server
 (defn create-server
-  [servlet {:keys [host port websockets container-options]}]
+  [servlet {:keys [#_host port #_websockets container-options]}]
   (let [http-handler (reify HttpHandler
                        (handle [_this http-exchange]
                          (Servlet/.service servlet
@@ -105,15 +105,15 @@
 
 #_io.pedestal.http.jetty/server
 (defn server
-  [{::http/keys [servlet]} {:keys [join?] :as options}]
+  [{::http/keys [servlet]} {:keys [#_join?] :as options}]
   (let [server (create-server servlet options)]
     {:server   server
      :start-fn (fn []
                  (log/info :version :dev)
                  (HttpServer/.start server)
                  (log/info :started :server)
-                 (when join?
-                   #_(.join server)))
+                 #_(when join?
+                     (.join server)))
      :stop-fn  (fn []
                  (HttpServer/.stop server 0)
                  (log/info :stopped :server))}))
