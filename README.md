@@ -39,3 +39,9 @@ clojure -M:dev:kondo
 ```shell
 clojure -M:dev:test-runner
 ```
+
+# TODO
+
+- [ ] Async support
+- [ ] HTTPS
+- [ ] WS
