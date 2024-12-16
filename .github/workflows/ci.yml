@@ -1,10 +1,13 @@
-on: workflow_dispatch
+on:
+  workflow_dispatch: { }
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 jobs:
   test-runner:
     runs-on: ubuntu-latest
-    container:
-      image: clojure:tools-deps-alpine
+    container: clojure:tools-deps-alpine
     steps:
-      - uses: actions/checkout@v3
-      - run: pwd && find . && env
+      - uses: actions/checkout@v4.2.2
       - run: clojure -M:dev:test-runner
