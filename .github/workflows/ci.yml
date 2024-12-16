@@ -1,0 +1,13 @@
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+jobs:
+  test-runner:
+    runs-on: ubuntu-latest
+    container:
+      image: clojure:tools-deps-alpine
+    steps:
+      - run: find .
+      - run: clojure -M:dev:test-runner
