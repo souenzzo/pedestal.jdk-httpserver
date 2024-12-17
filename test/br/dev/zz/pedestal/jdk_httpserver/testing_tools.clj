@@ -56,6 +56,7 @@
                                                   :enter ~handler}
                                       :route-name ::hello]}}
                  http/default-interceptors
+                 http/dev-interceptors
                  http/create-server
                  http/start)]
     (reify AutoCloseable

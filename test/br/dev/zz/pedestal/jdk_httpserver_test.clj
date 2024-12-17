@@ -7,7 +7,10 @@
             [io.pedestal.http.impl.servlet-interceptor :as servlet-interceptor]
             [clojure.test :refer [deftest is]]
             [ring.core.protocols])
-  (:import (java.net.http HttpRequest$BodyPublishers)))
+  (:import (java.net.http HttpRequest$BodyPublishers)
+           (java.nio ByteBuffer)
+           (java.nio.channels Pipe)
+           (java.nio.charset StandardCharsets)))
 
 (set! *warn-on-reflection* true)
 
@@ -257,4 +260,121 @@
             tt/clean-headers
             #_(doto clojure.pprint/pprint))))))
 
-;; NEXT async
+(deftest supports-nio-async-via-byte-buffers
+  (with-open [server (tt/open jh/server "/hello"
+                       (fn [context]
+                         (assoc context
+                           :response {:status  200
+                                      :headers {"Content-Type" "text/plain"}
+                                      :body    (ByteBuffer/wrap (String/.getBytes "Hello World" StandardCharsets/UTF_8))})))]
+    (is (= {:body    "Hello World"
+            :headers {"content-type"                      "text/plain"
+                      "content-security-policy"           "object-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'strict-dynamic' https: http:;"
+                      "strict-transport-security"         "max-age=31536000; includeSubdomains"
+                      "transfer-encoding"                 "chunked"
+                      "x-content-type-options"            "nosniff"
+                      "x-download-options"                "noopen"
+                      "x-frame-options"                   "DENY"
+                      "x-permitted-cross-domain-policies" "none"
+                      "x-xss-protection"                  "1; mode=block"}
+            :status  200}
+          (-> {:scheme         :http
+               :server-name    "localhost"
+               :server-port    8080
+               :uri            "/hello"
+               :protocol       "HTTP/1.1"
+               :request-method :get}
+            tt/send
+            tt/clean-headers
+            #_(doto clojure.pprint/pprint))))))
+
+(deftest supports-nio-async-via-byte-buffers
+  (with-open [server (tt/open jh/server "/hello"
+                       (fn [context]
+                         (let [p (Pipe/open)
+                               b (ByteBuffer/wrap (.getBytes "Hello World" "UTF-8"))
+                               sink (.sink p)]
+                           (.write sink b)
+                           (.close sink)
+                           (assoc context
+                             :response
+                             {:status  200
+                              :headers {"Content-Type" "text/plain"}
+                              :body    (.source p)}))))]
+    (is (= {:body    "Hello World"
+            :headers {"content-type"                      "text/plain"
+                      "content-security-policy"           "object-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'strict-dynamic' https: http:;"
+                      "strict-transport-security"         "max-age=31536000; includeSubdomains"
+                      "transfer-encoding"                 "chunked"
+                      "x-content-type-options"            "nosniff"
+                      "x-download-options"                "noopen"
+                      "x-frame-options"                   "DENY"
+                      "x-permitted-cross-domain-policies" "none"
+                      "x-xss-protection"                  "1; mode=block"}
+            :status  200}
+          (-> {:scheme         :http
+               :server-name    "localhost"
+               :server-port    8080
+               :uri            "/hello"
+               :protocol       "HTTP/1.1"
+               :request-method :get}
+            tt/send
+            tt/clean-headers
+            #_(doto clojure.pprint/pprint))))))
+
+(deftest simple-async
+  (with-open [server (tt/open jh/server "/hello"
+                       (fn [context]
+                         (async/go (assoc context
+                                     :response
+                                     {:status  200
+                                      :headers {"Content-Type" "text/plain"}
+                                      :body  "ok"}))))]
+    (is (= {:body    "ok"
+            :headers {"content-type"                      "text/plain"
+                      "content-security-policy"           "object-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'strict-dynamic' https: http:;"
+                      "strict-transport-security"         "max-age=31536000; includeSubdomains"
+                      "transfer-encoding"                 "chunked"
+                      "x-content-type-options"            "nosniff"
+                      "x-download-options"                "noopen"
+                      "x-frame-options"                   "DENY"
+                      "x-permitted-cross-domain-policies" "none"
+                      "x-xss-protection"                  "1; mode=block"}
+            :status  200}
+          (-> {:scheme         :http
+               :server-name    "localhost"
+               :server-port    8080
+               :uri            "/hello"
+               :protocol       "HTTP/1.1"
+               :request-method :get}
+            tt/send
+            tt/clean-headers
+            #_(doto clojure.pprint/pprint)))))
+  (with-open [server (tt/open jh/server "/hello"
+                       (fn [context]
+                         (assoc context
+                           :response
+                           {:status  200
+                            :headers {"Content-Type" "text/plain"}
+                            :body    (async/to-chan!! ["ok" "abc"])})))]
+    (is (= {:body    "okabc"
+            :headers {"content-type"                      "text/plain"
+                      "content-security-policy"           "object-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'strict-dynamic' https: http:;"
+                      "strict-transport-security"         "max-age=31536000; includeSubdomains"
+                      "transfer-encoding"                 "chunked"
+                      "x-content-type-options"            "nosniff"
+                      "x-download-options"                "noopen"
+                      "x-frame-options"                   "DENY"
+                      "x-permitted-cross-domain-policies" "none"
+                      "x-xss-protection"                  "1; mode=block"}
+            :status  200}
+          (-> {:scheme         :http
+               :server-name    "localhost"
+               :server-port    8080
+               :uri            "/hello"
+               :protocol       "HTTP/1.1"
+               :request-method :get}
+            tt/send
+            tt/clean-headers
+            #_(doto clojure.pprint/pprint))))))
+

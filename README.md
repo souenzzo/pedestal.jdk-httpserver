@@ -42,6 +42,6 @@ clojure -M:dev:test-runner
 
 # TODO
 
-- [ ] Async support
+- [x] Async support
 - [ ] HTTPS
 - [ ] WS
