@@ -13,7 +13,7 @@
            (java.lang AutoCloseable)
            (java.net InetSocketAddress)
            (java.nio ByteBuffer)
-           (java.nio.channels Channels)
+           (java.nio.channels Channels ReadableByteChannel)
            (java.util Collections Map)))
 
 (set! *warn-on-reflection* true)
@@ -110,7 +110,16 @@
       (isCommitted [_]
         (realized? *response-body))
       container/WriteNIOByteBody
-      (write-byte-buffer-body [this body resume-chan context]
+      (write-byte-channel-body [_this body resume-chan context]
+        (async/put! @*async-context {:body          (delay
+                                                      ;;TODO Almost working!
+                                                      (let [bb (ByteBuffer/allocate 0)]
+                                                        (.read ^ReadableByteChannel body bb)
+                                                        bb))
+                                     :response-body @*response-body
+                                     :resume-chan   resume-chan
+                                     :context       context}))
+      (write-byte-buffer-body [_this body resume-chan context]
         (async/put! @*async-context {:body          body
                                      :response-body @*response-body
                                      :resume-chan   resume-chan
@@ -122,14 +131,14 @@
   (let [{:keys [context-path configurator]
          :or   {context-path "/"
                 configurator identity}} container-options
-        *response-body (promise)
         *async-context (delay
                          (let [c (async/chan)]
                            (future
                              (loop []
                                (when-let [{:keys [^ByteBuffer body resume-chan context ^OutputStream response-body]} (async/<!! c)]
                                  (try
-                                   (.write (Channels/newChannel response-body) body)
+                                   (.write (Channels/newChannel response-body)
+                                     (force body))
                                    (async/put! resume-chan context)
                                    (async/close! resume-chan)
                                    (catch Throwable error
