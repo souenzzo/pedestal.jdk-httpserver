@@ -3,7 +3,6 @@
   (:require [clojure.core.async :as async]
             [clojure.string :as string]
             [io.pedestal.http :as http]
-            [clojure.data :as data]
             [io.pedestal.http.container :as container]
             [io.pedestal.log :as log])
   (:import (com.sun.net.httpserver Headers HttpExchange HttpHandler HttpServer HttpsExchange)
@@ -47,6 +46,7 @@
             (AutoCloseable/.close @*in)))))
     (getAsyncContext [this]
       (reify AsyncContext
+        (setTimeout [this timeout])
         (complete [this]
           (AutoCloseable/.close http-exchange))))
     (getRequestURI [_this] (.getPath (HttpExchange/.getRequestURI http-exchange)))
@@ -64,13 +64,14 @@
           "/" ""
           context-path)))
     (isAsyncSupported [_this] true)
-    (startAsync [_this] @*async-context)
+    (startAsync [this] @*async-context
+      (.getAsyncContext this))
     (isAsyncStarted [_this] (realized? *async-context))
     (getRemoteAddr [_this] (.getHostAddress (.getAddress (HttpExchange/.getRemoteAddress http-exchange))))
     (getServerPort [_this] (.getPort (.getAddress (.getServer (HttpExchange/.getHttpContext http-exchange)))))
     (getHeaderNames [_this] (Collections/enumeration (.keySet (HttpExchange/.getRequestHeaders http-exchange))))
     (getHeaders [_this name] (Collections/enumeration (.get (HttpExchange/.getRequestHeaders http-exchange) name)))
-    (getHeader [_this name] (first (.get (HttpExchange/.getRequestHeaders http-exchange) name)))))
+    (getHeader [_this name] (.getFirst (HttpExchange/.getRequestHeaders http-exchange) name))))
 
 #_org.eclipse.jetty.server.Response
 #_io.pedestal.http.impl.servlet-interceptor/send-response

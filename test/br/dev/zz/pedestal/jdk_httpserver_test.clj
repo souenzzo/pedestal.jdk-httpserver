@@ -288,19 +288,6 @@
             tt/clean-headers
             #_(doto clojure.pprint/pprint))))))
 
-
-
-(defn hello-bytechannel [_request]
-  (let [p (Pipe/open)
-        b (ByteBuffer/wrap (.getBytes "Hello World" "UTF-8"))
-        sink (.sink p)]
-    (.write sink b)
-    (.close sink)
-    {:status  200
-     :headers {"Content-Type" "text/plain"}
-     :body    (.source p)}))
-
-
 (deftest supports-nio-async-via-byte-buffers
   (with-open [server (tt/open jh/server "/hello"
                        (fn [context]
@@ -344,8 +331,34 @@
                                      {:status  200
                                       :headers {"Content-Type" "text/plain"}
                                       :body  "ok"}))))]
-    ;; TODO: NOT working
-    (is (= {:body    ""
+    (is (= {:body    "ok"
+            :headers {"content-type"                      "text/plain"
+                      "content-security-policy"           "object-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'strict-dynamic' https: http:;"
+                      "strict-transport-security"         "max-age=31536000; includeSubdomains"
+                      "transfer-encoding"                 "chunked"
+                      "x-content-type-options"            "nosniff"
+                      "x-download-options"                "noopen"
+                      "x-frame-options"                   "DENY"
+                      "x-permitted-cross-domain-policies" "none"
+                      "x-xss-protection"                  "1; mode=block"}
+            :status  200}
+          (-> {:scheme         :http
+               :server-name    "localhost"
+               :server-port    8080
+               :uri            "/hello"
+               :protocol       "HTTP/1.1"
+               :request-method :get}
+            tt/send
+            tt/clean-headers
+            #_(doto clojure.pprint/pprint)))))
+  (with-open [server (tt/open jh/server "/hello"
+                       (fn [context]
+                         (assoc context
+                           :response
+                           {:status  200
+                            :headers {"Content-Type" "text/plain"}
+                            :body    (async/to-chan!! ["ok" "abc"])})))]
+    (is (= {:body    "okabc"
             :headers {"content-type"                      "text/plain"
                       "content-security-policy"           "object-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'strict-dynamic' https: http:;"
                       "strict-transport-security"         "max-age=31536000; includeSubdomains"
