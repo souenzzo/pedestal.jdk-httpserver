@@ -7,7 +7,9 @@
             [io.pedestal.http.impl.servlet-interceptor :as servlet-interceptor]
             [clojure.test :refer [deftest is]]
             [ring.core.protocols])
-  (:import (java.net.http HttpRequest$BodyPublishers)))
+  (:import (java.net.http HttpRequest$BodyPublishers)
+           (java.nio ByteBuffer)
+           (java.nio.charset StandardCharsets)))
 
 (set! *warn-on-reflection* true)
 
@@ -258,3 +260,30 @@
             #_(doto clojure.pprint/pprint))))))
 
 ;; NEXT async
+
+(deftest supports-nio-async-via-byte-buffers
+  (with-open [server (tt/open jh/server "/hello"
+                       (fn [context]
+                         (assoc context
+                           :response {:status  200
+                                      :headers {"Content-Type" "text/plain"}
+                                      :body    (ByteBuffer/wrap (String/.getBytes "Hello World" StandardCharsets/UTF_8))})))]
+    (is (= {:body    "hello\nworld"
+            :headers {"content-security-policy"           "object-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'strict-dynamic' https: http:;"
+                      "strict-transport-security"         "max-age=31536000; includeSubdomains"
+                      "transfer-encoding"                 "chunked"
+                      "x-content-type-options"            "nosniff"
+                      "x-download-options"                "noopen"
+                      "x-frame-options"                   "DENY"
+                      "x-permitted-cross-domain-policies" "none"
+                      "x-xss-protection"                  "1; mode=block"}
+            :status  200}
+          (-> {:scheme         :http
+               :server-name    "localhost"
+               :server-port    8080
+               :uri            "/hello"
+               :protocol       "HTTP/1.1"
+               :request-method :get}
+            tt/send
+            tt/clean-headers
+            #_(doto clojure.pprint/pprint))))))

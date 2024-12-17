@@ -1,28 +1,36 @@
 (ns br.dev.zz.pedestal.jdk-httpserver
   ;; https://docs.oracle.com/en/java/javase/21/docs/api/jdk.httpserver/module-summary.html
-  (:require [clojure.string :as string]
+  (:require [clojure.core.async :as async]
+            [clojure.string :as string]
             [io.pedestal.http :as http]
+            [clojure.data :as data]
+            [io.pedestal.http.container :as container]
             [io.pedestal.log :as log])
   (:import (com.sun.net.httpserver Headers HttpExchange HttpHandler HttpServer HttpsExchange)
-           (jakarta.servlet Servlet ServletInputStream ServletOutputStream)
+           (jakarta.servlet AsyncContext Servlet ServletInputStream ServletOutputStream)
            (jakarta.servlet.http HttpServletRequest HttpServletResponse)
            (java.io InputStream OutputStream)
            (java.lang AutoCloseable)
            (java.net InetSocketAddress)
+           (java.nio ByteBuffer)
+           (java.nio.channels Channels)
            (java.util Collections Map)))
 
 (set! *warn-on-reflection* true)
 
 #_org.eclipse.jetty.server.Request
 (defn http-exchange->http-servlet-request
-  [http-exchange]
+  [http-exchange *response-body]
   (reify HttpServletRequest
     (getProtocol [_this] (HttpExchange/.getProtocol http-exchange))
     (getMethod [_this] (HttpExchange/.getRequestMethod http-exchange))
     (getContentLengthLong [this] (or (some-> this (.getHeader "Content-Length") parse-long)
                                    -1))
     (getContentType [this] (.getHeader this "Content-Type"))
-    (getAttribute [_this _] nil)
+    (setAttribute [_this name o]
+      (HttpExchange/.setAttribute http-exchange name o))
+    (getAttribute [_this name]
+      (HttpExchange/.getAttribute http-exchange name))
     (getCharacterEncoding [_this] nil)
     (getInputStream [_this]
       (let [*in (delay (HttpExchange/.getRequestBody http-exchange))]
@@ -37,6 +45,10 @@
             #_(AutoCloseable/.close http-exchange)
             (log/info :close :stdin)
             (AutoCloseable/.close @*in)))))
+    (getAsyncContext [this]
+      (reify AsyncContext
+        (complete [this]
+          (AutoCloseable/.close http-exchange))))
     (getRequestURI [_this] (.getPath (HttpExchange/.getRequestURI http-exchange)))
     (getQueryString [_this] (.getQuery (HttpExchange/.getRequestURI http-exchange)))
     (getScheme [_this]
@@ -51,8 +63,9 @@
         (case context-path
           "/" ""
           context-path)))
-    (isAsyncSupported [_this] false)
-    (isAsyncStarted [_this] false)
+    (isAsyncSupported [_this] true)
+    (startAsync [_this] @*response-body)
+    (isAsyncStarted [_this] (realized? *response-body))
     (getRemoteAddr [_this] (.getHostAddress (.getAddress (HttpExchange/.getRemoteAddress http-exchange))))
     (getServerPort [_this] (.getPort (.getAddress (.getServer (HttpExchange/.getHttpContext http-exchange)))))
     (getHeaderNames [_this] (Collections/enumeration (.keySet (HttpExchange/.getRequestHeaders http-exchange))))
@@ -62,13 +75,15 @@
 #_org.eclipse.jetty.server.Response
 #_io.pedestal.http.impl.servlet-interceptor/send-response
 (defn http-exchange->http-servlet-response
-  [http-exchange]
+  [http-exchange *async-context *output-stream]
   (let [*status (atom 200)
         *content-length (atom 0)
         *headers (delay (HttpExchange/.getResponseHeaders http-exchange))
         *response-body (delay
                          (HttpExchange/.sendResponseHeaders http-exchange @*status @*content-length)
-                         (HttpExchange/.getResponseBody http-exchange))]
+                         (let [output-stream (HttpExchange/.getResponseBody http-exchange)]
+                           (deliver *output-stream output-stream)
+                           output-stream))]
     (reify HttpServletResponse
       (getOutputStream [_]
         (proxy [ServletOutputStream] []
@@ -92,10 +107,15 @@
         (reset! *content-length (long content-length)))
       (flushBuffer [_]
         (OutputStream/.flush @*response-body)
-        ;; TODO: Where to close?! - do not work with async!
-        (AutoCloseable/.close http-exchange))
+        (when-not (realized? *async-context)
+          (AutoCloseable/.close http-exchange)))
       (isCommitted [_]
-        (realized? *response-body)))))
+        (realized? *response-body))
+      container/WriteNIOByteBody
+      (write-byte-buffer-body [this body resume-chan context]
+        (async/put! @*async-context {:body        body
+                                     :resume-chan resume-chan
+                                     :context     context})))))
 
 #_io.pedestal.http.jetty/create-server
 (defn create-server
@@ -103,11 +123,27 @@
   (let [{:keys [context-path configurator]
          :or   {context-path "/"
                 configurator identity}} container-options
+        *output-stream (promise)
+        *async-context (delay
+                         (let [c (async/chan)]
+                           (Thread/startVirtualThread (fn []
+                                                        (loop []
+                                                          (when-let [{:keys [body resume-chan context]} (async/<!! c)]
+                                                            (try
+                                                              (let [os *output-stream]
+                                                                (.write (Channels/newChannel ^OutputStream os) ^ByteBuffer body))
+                                                              (async/put! resume-chan context)
+                                                              (async/close! resume-chan)
+                                                              (catch Throwable error
+                                                                (async/put! resume-chan (assoc context :io.pedestal.impl.interceptor/error error))
+                                                                (async/close! resume-chan)))
+                                                            (recur)))))
+                           c))
         http-handler (reify HttpHandler
                        (handle [_this http-exchange]
                          (Servlet/.service servlet
-                           (http-exchange->http-servlet-request http-exchange)
-                           (http-exchange->http-servlet-response http-exchange))))
+                           (http-exchange->http-servlet-request http-exchange *output-stream)
+                           (http-exchange->http-servlet-response http-exchange *async-context *output-stream))))
         addr (if (string? host)
                (InetSocketAddress. ^String host (int port))
                (InetSocketAddress. port))
