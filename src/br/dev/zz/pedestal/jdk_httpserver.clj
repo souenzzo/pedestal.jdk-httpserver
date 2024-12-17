@@ -20,7 +20,7 @@
 
 #_org.eclipse.jetty.server.Request
 (defn http-exchange->http-servlet-request
-  [http-exchange *response-body]
+  [http-exchange *async-context]
   (reify HttpServletRequest
     (getProtocol [_this] (HttpExchange/.getProtocol http-exchange))
     (getMethod [_this] (HttpExchange/.getRequestMethod http-exchange))
@@ -64,8 +64,8 @@
           "/" ""
           context-path)))
     (isAsyncSupported [_this] true)
-    (startAsync [_this] @*response-body)
-    (isAsyncStarted [_this] (realized? *response-body))
+    (startAsync [_this] @*async-context)
+    (isAsyncStarted [_this] (realized? *async-context))
     (getRemoteAddr [_this] (.getHostAddress (.getAddress (HttpExchange/.getRemoteAddress http-exchange))))
     (getServerPort [_this] (.getPort (.getAddress (.getServer (HttpExchange/.getHttpContext http-exchange)))))
     (getHeaderNames [_this] (Collections/enumeration (.keySet (HttpExchange/.getRequestHeaders http-exchange))))
@@ -75,15 +75,13 @@
 #_org.eclipse.jetty.server.Response
 #_io.pedestal.http.impl.servlet-interceptor/send-response
 (defn http-exchange->http-servlet-response
-  [http-exchange *async-context *output-stream]
+  [http-exchange *async-context]
   (let [*status (atom 200)
         *content-length (atom 0)
         *headers (delay (HttpExchange/.getResponseHeaders http-exchange))
         *response-body (delay
                          (HttpExchange/.sendResponseHeaders http-exchange @*status @*content-length)
-                         (let [output-stream (HttpExchange/.getResponseBody http-exchange)]
-                           (deliver *output-stream output-stream)
-                           output-stream))]
+                         (HttpExchange/.getResponseBody http-exchange))]
     (reify HttpServletResponse
       (getOutputStream [_]
         (proxy [ServletOutputStream] []
@@ -113,9 +111,10 @@
         (realized? *response-body))
       container/WriteNIOByteBody
       (write-byte-buffer-body [this body resume-chan context]
-        (async/put! @*async-context {:body        body
-                                     :resume-chan resume-chan
-                                     :context     context})))))
+        (async/put! @*async-context {:body          body
+                                     :response-body @*response-body
+                                     :resume-chan   resume-chan
+                                     :context       context})))))
 
 #_io.pedestal.http.jetty/create-server
 (defn create-server
@@ -123,27 +122,26 @@
   (let [{:keys [context-path configurator]
          :or   {context-path "/"
                 configurator identity}} container-options
-        *output-stream (promise)
+        *response-body (promise)
         *async-context (delay
                          (let [c (async/chan)]
-                           (Thread/startVirtualThread (fn []
-                                                        (loop []
-                                                          (when-let [{:keys [body resume-chan context]} (async/<!! c)]
-                                                            (try
-                                                              (let [os *output-stream]
-                                                                (.write (Channels/newChannel ^OutputStream os) ^ByteBuffer body))
-                                                              (async/put! resume-chan context)
-                                                              (async/close! resume-chan)
-                                                              (catch Throwable error
-                                                                (async/put! resume-chan (assoc context :io.pedestal.impl.interceptor/error error))
-                                                                (async/close! resume-chan)))
-                                                            (recur)))))
+                           (future
+                             (loop []
+                               (when-let [{:keys [^ByteBuffer body resume-chan context ^OutputStream response-body]} (async/<!! c)]
+                                 (try
+                                   (.write (Channels/newChannel response-body) body)
+                                   (async/put! resume-chan context)
+                                   (async/close! resume-chan)
+                                   (catch Throwable error
+                                     (async/put! resume-chan (assoc context :io.pedestal.impl.interceptor/error error))
+                                     (async/close! resume-chan)))
+                                 (recur))))
                            c))
         http-handler (reify HttpHandler
                        (handle [_this http-exchange]
                          (Servlet/.service servlet
-                           (http-exchange->http-servlet-request http-exchange *output-stream)
-                           (http-exchange->http-servlet-response http-exchange *async-context *output-stream))))
+                           (http-exchange->http-servlet-request http-exchange *async-context)
+                           (http-exchange->http-servlet-response http-exchange *async-context))))
         addr (if (string? host)
                (InetSocketAddress. ^String host (int port))
                (InetSocketAddress. port))

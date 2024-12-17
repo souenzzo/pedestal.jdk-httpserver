@@ -259,8 +259,6 @@
             tt/clean-headers
             #_(doto clojure.pprint/pprint))))))
 
-;; NEXT async
-
 (deftest supports-nio-async-via-byte-buffers
   (with-open [server (tt/open jh/server "/hello"
                        (fn [context]
@@ -268,8 +266,9 @@
                            :response {:status  200
                                       :headers {"Content-Type" "text/plain"}
                                       :body    (ByteBuffer/wrap (String/.getBytes "Hello World" StandardCharsets/UTF_8))})))]
-    (is (= {:body    "hello\nworld"
-            :headers {"content-security-policy"           "object-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'strict-dynamic' https: http:;"
+    (is (= {:body    "Hello World"
+            :headers {"content-type"                      "text/plain"
+                      "content-security-policy"           "object-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'strict-dynamic' https: http:;"
                       "strict-transport-security"         "max-age=31536000; includeSubdomains"
                       "transfer-encoding"                 "chunked"
                       "x-content-type-options"            "nosniff"
