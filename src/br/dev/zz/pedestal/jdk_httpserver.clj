@@ -112,11 +112,7 @@
         (realized? *response-body))
       container/WriteNIOByteBody
       (write-byte-channel-body [_this body resume-chan context]
-        (async/put! @*async-context {:body          (delay
-                                                      ;;TODO Almost working!
-                                                      (let [bb (ByteBuffer/allocate 0)]
-                                                        (.read ^ReadableByteChannel body bb)
-                                                        bb))
+        (async/put! @*async-context {:body          body
                                      :response-body @*response-body
                                      :resume-chan   resume-chan
                                      :context       context}))
@@ -136,10 +132,16 @@
                          (let [c (async/chan)]
                            (future
                              (loop []
-                               (when-let [{:keys [^ByteBuffer body resume-chan context ^OutputStream response-body]} (async/<!! c)]
+                               (when-let [{:keys [body resume-chan context ^OutputStream response-body]} (async/<!! c)]
                                  (try
-                                   (.write (Channels/newChannel response-body)
-                                     (force body))
+                                   (if (instance? ByteBuffer body)
+                                     (.write (Channels/newChannel response-body) body)
+                                     ;; TODO: Why this is not working?
+                                     (let [body ^ReadableByteChannel body
+                                           bb (ByteBuffer/allocate 64)]
+                                       (.read body bb)
+                                       (.write (Channels/newChannel response-body)
+                                         (.asReadOnlyBuffer bb))))
                                    (async/put! resume-chan context)
                                    (async/close! resume-chan)
                                    (catch Throwable error

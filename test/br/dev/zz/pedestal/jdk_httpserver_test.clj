@@ -301,8 +301,7 @@
                              {:status  200
                               :headers {"Content-Type" "text/plain"}
                               :body    (.source p)}))))]
-    ;; TODO: Almost working
-    (is (= {:body    ""
+    (is (= {:body    "Hello World"
             :headers {"content-type"                      "text/plain"
                       "content-security-policy"           "object-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'strict-dynamic' https: http:;"
                       "strict-transport-security"         "max-age=31536000; includeSubdomains"
