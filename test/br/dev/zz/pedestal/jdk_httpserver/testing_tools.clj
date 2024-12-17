@@ -85,7 +85,7 @@
    (let [maybe-content-type (HttpHeaders/.firstValue (HttpResponse$ResponseInfo/.headers response-info) "Content-Type")]
      (if (Optional/.isPresent maybe-content-type)
        (case (Optional/.get maybe-content-type)
-         "text/plain"
+         ("text/plain" "application/octet-stream")
          (HttpResponse$BodySubscribers/ofString StandardCharsets/UTF_8))
        (HttpResponse$BodySubscribers/ofString StandardCharsets/UTF_8)))))
 

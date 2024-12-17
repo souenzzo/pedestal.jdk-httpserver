@@ -3,7 +3,7 @@
   (:require [clojure.string :as string]
             [io.pedestal.http :as http]
             [io.pedestal.log :as log])
-  (:import (com.sun.net.httpserver Filter Headers HttpExchange HttpHandler HttpServer HttpsExchange)
+  (:import (com.sun.net.httpserver Headers HttpExchange HttpHandler HttpServer HttpsExchange)
            (jakarta.servlet Servlet ServletInputStream ServletOutputStream)
            (jakarta.servlet.http HttpServletRequest HttpServletResponse)
            (java.io InputStream OutputStream)
@@ -27,8 +27,11 @@
     (getInputStream [_this]
       (let [*in (delay (HttpExchange/.getRequestBody http-exchange))]
         (proxy [ServletInputStream] []
-          (read [b off len]
-            (InputStream/.read @*in b off len))
+          (read
+            ([b]
+             (InputStream/.read @*in b))
+            ([b off len]
+             (InputStream/.read @*in b off len)))
           (close []
             ;; maybe close here?
             #_(AutoCloseable/.close http-exchange)
@@ -67,9 +70,12 @@
                          (HttpExchange/.sendResponseHeaders http-exchange @*status @*content-length)
                          (HttpExchange/.getResponseBody http-exchange))]
     (reify HttpServletResponse
-      (getOutputStream [_] (proxy [ServletOutputStream] []
-                             (write [b off len]
-                               (OutputStream/.write @*response-body b off len))))
+      (getOutputStream [_]
+        (proxy [ServletOutputStream] []
+          (write [b off len]
+            (OutputStream/.write @*response-body b off len))
+          (close []
+            (AutoCloseable/.close @*response-body))))
       (setStatus [_ status] (reset! *status status))
       (getStatus [_] @*status)
       (getBufferSize [_] 0)
