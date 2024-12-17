@@ -136,12 +136,11 @@
                                  (try
                                    (if (instance? ByteBuffer body)
                                      (.write (Channels/newChannel response-body) body)
-                                     ;; TODO: Why this is not working?
+                                     ;; TODO: Review performance!
                                      (let [body ^ReadableByteChannel body
-                                           bb (ByteBuffer/allocate 64)]
-                                       (.read body bb)
-                                       (.write (Channels/newChannel response-body)
-                                         (.asReadOnlyBuffer bb))))
+                                           bb (ByteBuffer/allocate 64)
+                                           n (.read body bb)]
+                                       (.write response-body (.array bb) 0 n)))
                                    (async/put! resume-chan context)
                                    (async/close! resume-chan)
                                    (catch Throwable error
