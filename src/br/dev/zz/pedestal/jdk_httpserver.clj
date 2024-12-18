@@ -8,7 +8,7 @@
   (:import (com.sun.net.httpserver Headers HttpExchange HttpHandler HttpServer HttpsExchange)
            (jakarta.servlet AsyncContext Servlet ServletInputStream ServletOutputStream)
            (jakarta.servlet.http HttpServletRequest HttpServletResponse)
-           (java.io InputStream OutputStream)
+           (java.io IOException InputStream OutputStream)
            (java.lang AutoCloseable)
            (java.net InetSocketAddress)
            (java.nio ByteBuffer)
@@ -105,7 +105,9 @@
       (setContentLengthLong [_ content-length]
         (reset! *content-length (long content-length)))
       (flushBuffer [_]
-        (OutputStream/.flush @*response-body)
+        (try
+          (OutputStream/.flush @*response-body)
+          (catch IOException _))
         (when-not (realized? *async-context)
           (AutoCloseable/.close http-exchange)))
       (isCommitted [_]
@@ -137,10 +139,13 @@
                                    (if (instance? ByteBuffer body)
                                      (.write (Channels/newChannel response-body) body)
                                      ;; TODO: Review performance!
-                                     (let [body ^ReadableByteChannel body
-                                           bb (ByteBuffer/allocate 64)
-                                           n (.read body bb)]
-                                       (.write response-body (.array bb) 0 n)))
+                                     (let [bb (ByteBuffer/allocate 64)]
+                                       (loop []
+                                         (let [n (ReadableByteChannel/.read body bb)]
+                                           (when (pos-int? n)
+                                             (.write response-body (.array bb) 0 n)
+                                             (.clear bb)
+                                             (recur))))))
                                    (async/put! resume-chan context)
                                    (async/close! resume-chan)
                                    (catch Throwable error

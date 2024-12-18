@@ -329,7 +329,7 @@
                                      :response
                                      {:status  200
                                       :headers {"Content-Type" "text/plain"}
-                                      :body  "ok"}))))]
+                                      :body    "ok"}))))]
     (is (= {:body    "ok"
             :headers {"content-type"                      "text/plain"
                       "content-security-policy"           "object-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'strict-dynamic' https: http:;"
