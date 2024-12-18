@@ -41,10 +41,11 @@
              (InputStream/.read @*in b off len)))
           (close []
             (AutoCloseable/.close @*in)))))
-    (getAsyncContext [this]
+    (getAsyncContext [_this]
       (reify AsyncContext
-        (setTimeout [this timeout])
-        (complete [this]
+        ;; TODO
+        (setTimeout [_this _timeout])
+        (complete [_this]
           (AutoCloseable/.close http-exchange))))
     (getRequestURI [_this] (.getPath (HttpExchange/.getRequestURI http-exchange)))
     (getQueryString [_this] (.getQuery (HttpExchange/.getRequestURI http-exchange)))
@@ -123,8 +124,8 @@
 
 #_io.pedestal.http.jetty/create-server
 (defn create-server
-  [servlet {:keys [host port #_websockets container-options]}]
-  (let [{:keys [context-path configurator]
+  [servlet {:keys [host port container-options]}]
+  (let [{:keys [context-path configurator #_ssl-port #_insecure-ssl? #_keystore #_ssl?]
          :or   {context-path "/"
                 configurator identity}} container-options
         *async-context (delay

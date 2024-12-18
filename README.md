@@ -1,4 +1,4 @@
-# pedestal-jdk-http
+# pedestal.jdk-httpserver
 
 > A pedestal backend
 > using [jdk.httpserver](https://docs.oracle.com/en/java/javase/21/docs/api/jdk.httpserver/module-summary.html)
@@ -42,6 +42,4 @@ clojure -M:dev:test-runner
 
 # TODO
 
-- [x] Async support
 - [ ] HTTPS
-- [ ] WS
