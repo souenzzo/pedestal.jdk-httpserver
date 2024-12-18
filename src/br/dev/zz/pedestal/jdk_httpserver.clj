@@ -40,9 +40,6 @@
             ([b off len]
              (InputStream/.read @*in b off len)))
           (close []
-            ;; maybe close here?
-            #_(AutoCloseable/.close http-exchange)
-            (log/info :close :stdin)
             (AutoCloseable/.close @*in)))))
     (getAsyncContext [this]
       (reify AsyncContext
