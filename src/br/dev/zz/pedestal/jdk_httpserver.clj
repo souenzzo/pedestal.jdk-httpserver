@@ -137,7 +137,7 @@
                                    (if (instance? ByteBuffer body)
                                      (.write (Channels/newChannel response-body) body)
                                      ;; TODO: Review performance!
-                                     (let [bb (ByteBuffer/allocate 64)]
+                                     (let [bb (ByteBuffer/allocate #_0x10000 65536)]
                                        (loop []
                                          (let [n (ReadableByteChannel/.read body bb)]
                                            (when (pos-int? n)
