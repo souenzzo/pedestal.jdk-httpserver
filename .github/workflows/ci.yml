@@ -8,16 +8,19 @@ jobs:
   kondo:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4.2.2
       - uses: ./.github/actions/setup.yml
       - run: clojure -M:dev:kondo
   test-runner:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4.2.2
       - uses: ./.github/actions/setup.yml
       - run: clojure -M:dev:test-runner
   pedestal-container-tests:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4.2.2
       - uses: ./.github/actions/setup.yml
       - run: clojure -M:dev:pedestal-container-tests
 
