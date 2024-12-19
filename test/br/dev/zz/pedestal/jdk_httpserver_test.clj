@@ -352,11 +352,17 @@
             #_(doto clojure.pprint/pprint)))))
   (with-open [server (tt/open jh/server "/hello"
                        (fn [context]
-                         (assoc context
-                           :response
-                           {:status  200
-                            :headers {"Content-Type" "text/plain"}
-                            :body    (async/to-chan!! ["ok" "abc"])})))]
+                         (let [c (async/chan 10)]
+                           (async/go
+                             (async/>! c "ok")
+                             (async/<! (async/timeout 100))
+                             (async/>! c "abc")
+                             (async/close! c))
+                           (assoc context
+                             :response
+                             {:status  200
+                              :headers {"Content-Type" "text/plain"}
+                              :body   c}))))]
     (is (= {:body    "okabc"
             :headers {"content-type"                      "text/plain"
                       "content-security-policy"           "object-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'strict-dynamic' https: http:;"

@@ -5,22 +5,24 @@ on:
   pull_request:
     branches: [ main ]
 jobs:
+  kondo:
+    runs-on: ubuntu-latest
+    steps:
+      # TODO: - uses: souenzzo/pedestal.jdk-httpserver/setup
+      - uses: actions/checkout@v4.2.2
+      - uses: ./.github/setup
+      - run: clojure -M:dev:kondo
   test-runner:
     runs-on: ubuntu-latest
-    container: clojure:tools-deps-alpine
     steps:
-      ## cache require posix tar
-      - run: apk --no-cache add tar
       - uses: actions/checkout@v4.2.2
-      - uses: actions/cache@v4
-        with:
-          path: |
-            /root/.m2
-            /root/.gitlibs
-            .cpcache
-          key: "${{hashFiles('deps.edn')}}"
-      - run: clojure -M:dev:kondo
+      - uses: ./.github/setup
       - run: clojure -M:dev:test-runner
+  pedestal-container-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: ./.github/setup
       - run: clojure -M:dev:pedestal-container-tests
 
 ## docker run --rm  -v.:/app:ro "-v$HOME/.m2:/root/.m2:ro" "-v$HOME/.gitlibs:/root/.gitlibs:ro" -w/app --mount type=tmpfs,dst=/app/.cpcache clojure:tools-deps-alpine clojure -M:dev:test-runner
