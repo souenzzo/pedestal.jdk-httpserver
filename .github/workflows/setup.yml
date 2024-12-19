@@ -1,6 +1,9 @@
 on:
   workflow_call:
-    inputs: {}
+    inputs:
+      run:
+        required: true
+        type: string
     secrets: {}
 
 jobs:
@@ -18,4 +21,4 @@ jobs:
             ~/.gitlibs
             .cpcache
           key: "${{hashFiles('deps.edn')}}"
-
+      - run: ${{ run }}
