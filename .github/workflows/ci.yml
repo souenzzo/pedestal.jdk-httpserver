@@ -21,5 +21,6 @@ jobs:
           key: "${{hashFiles('deps.edn')}}"
       - run: clojure -M:dev:kondo
       - run: clojure -M:dev:test-runner
+      - run: clojure -M:dev:pedestal-container-tests
 
 ## docker run --rm  -v.:/app:ro "-v$HOME/.m2:/root/.m2:ro" "-v$HOME/.gitlibs:/root/.gitlibs:ro" -w/app --mount type=tmpfs,dst=/app/.cpcache clojure:tools-deps-alpine clojure -M:dev:test-runner
