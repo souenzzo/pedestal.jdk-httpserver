@@ -6,5 +6,5 @@
 
 (defn -main
   [& _]
-  (run! requiring-resolve namespaces)
+  (apply serialized-require namespaces)
   (apply test/run-tests namespaces))
