@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.2.2
-      - uses: ./.github/workflows/setup.yml
+      - uses: souenzzo/pedestal.jdk-httpserver/.github/workflows/setup.yml@use-action
       - run: clojure -M:dev:kondo
   test-runner:
     runs-on: ubuntu-latest
