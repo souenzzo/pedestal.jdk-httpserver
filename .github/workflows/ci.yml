@@ -8,21 +8,18 @@ on:
 jobs:
   kondo:
     runs-on: ubuntu-latest
+    uses: souenzzo/pedestal.jdk-httpserver/.github/workflows/setup.yml@use-action
     steps:
-      - uses: actions/checkout@v4.2.2
-      - uses: souenzzo/pedestal.jdk-httpserver/.github/workflows/setup.yml@use-action
       - run: clojure -M:dev:kondo
   test-runner:
     runs-on: ubuntu-latest
+    uses: souenzzo/pedestal.jdk-httpserver/.github/workflows/setup.yml@use-action
     steps:
-      - uses: actions/checkout@v4.2.2
-      - uses: ./.github/workflows/setup.yml
       - run: clojure -M:dev:test-runner
   pedestal-container-tests:
     runs-on: ubuntu-latest
+    uses: souenzzo/pedestal.jdk-httpserver/.github/workflows/setup.yml@use-action
     steps:
-      - uses: actions/checkout@v4.2.2
-      - uses: ./.github/workflows/setup.yml
       - run: clojure -M:dev:pedestal-container-tests
 
 ## docker run --rm  -v.:/app:ro "-v$HOME/.m2:/root/.m2:ro" "-v$HOME/.gitlibs:/root/.gitlibs:ro" -w/app --mount type=tmpfs,dst=/app/.cpcache clojure:tools-deps-alpine clojure -M:dev:test-runner
