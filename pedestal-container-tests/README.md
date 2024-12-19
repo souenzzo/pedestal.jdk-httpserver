@@ -5,7 +5,7 @@ A suite to test if the pedestal container is fully implemented.
 ```clojure
 br.dev.zz/pedestal-container-tests {:git/url   "https://github.com/souenzzo/pedestal.jdk-httpserver"
                                     :deps/root "pedestal-container-tests"
-                                    :git/sha   "77f135f63f7e9839dabb4fe07b91a877857366e7"}}
+                                    :git/sha   "82bc041f68abb44b6fd0eb6ac319cd146c4924c5"}}
 ```
 
 ## Usage
