@@ -16,4 +16,4 @@
            :kondo                    {:main-opts ["-m" "clj-kondo.main" "--lint" "src"]}
            :test-runner              {:main-opts ["-m" "cognitect.test-runner"]}
            :pedestal-container-tests {:jvm-opts  ["-Dbr.dev.zz.pedestal-container-tests.type=br.dev.zz.pedestal.jdk-httpserver/server"]
-                                      :main-opts ["-m" "br.dev.zz.pedestal-container-tests.main"]}}}
+                                      :main-opts ["-m" "br.dev.zz.pedestal-container-tests.runner"]}}}

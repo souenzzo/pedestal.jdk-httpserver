@@ -20,14 +20,14 @@ It can be eiter a keyword, like `:jetty`, or a symbol, like `io.pedestal.http.je
 ```clojure
 :aliases {:pedestal-container-tests {:extra-deps {br.dev.zz/pedestal-container-tests {...}}
                                      :jvm-opts   ["-Dbr.dev.zz.pedestal-container-tests.type=my.container/server"]
-                                     :main-opts  ["-m" "br.dev.zz.pedestal-container-tests.main"]}}
+                                     :main-opts  ["-m" "br.dev.zz.pedestal-container-tests.runner"]}}
 ```
 
 ### Advanced - use our own test runner
 
 ```clojure
 (ns my.container.test-runner
-  (:require [br.dev.zz.pedestal-container-tests.main :as pct.main]
+  (:require [br.dev.zz.pedestal-container-tests.runner :as pct.runner]
             [clojure.test :as test]))
 (defn -main
   [& _]
