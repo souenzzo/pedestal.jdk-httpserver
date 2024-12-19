@@ -1,9 +1,12 @@
 (ns br.dev.zz.pedestal-container-tests
-  (:refer-clojure :exclude [send])
-  (:require [clojure.string :as string]
+  (:refer-clojure :exclude [send type])
+  (:require [clojure.edn :as edn]
+            [clojure.string :as string]
             [io.pedestal.http :as http]
+            [io.pedestal.interceptor :as interceptor]
             [ring.core.protocols])
-  (:import (java.lang AutoCloseable)
+  (:import (clojure.lang ILookup)
+           (java.lang AutoCloseable)
            (java.net URI)
            (java.net.http HttpClient HttpClient$Builder HttpClient$Version HttpHeaders HttpRequest HttpResponse
                           HttpResponse$BodySubscribers HttpResponse$ResponseInfo)
@@ -20,9 +23,22 @@
       (HttpClient$Builder/.version HttpClient$Version/HTTP_1_1)
       .build)))
 
+(def ^:dynamic *type
+  (delay
+    (let [type (some-> "br.dev.zz.pedestal-container-tests.type"
+                 System/getProperty
+                 (or (System/getenv "PEDESTAL_CONTAINER_TESTS_TYPE"))
+                 edn/read-string)]
+      (cond
+        (keyword? type) type
+        (symbol? type) @(requiring-resolve type)
+        :else (throw (ex-info "Can't find pedestal container tests type"
+                       {:type type}))))))
+
 (defn http-request
   ^HttpRequest [{:keys [uri request-method headers scheme server-name server-port query-string protocol body]
                  :as   ring-request}]
+  (def _ring-request ring-request)
   (let [uri-uri (URI. (name scheme) nil server-name server-port uri query-string nil)
         method (-> request-method name string/upper-case)
         version (when (contains? ring-request :protocol)
@@ -46,20 +62,25 @@
                           (Optional/of body)
                           (Optional/empty))))))
 
-(defn open
+(defn start-enter-interceptor
   ^AutoCloseable
-  [type path handler]
-  (let [server (-> {::http/type   type
+  [enter]
+  (let [server (-> {::http/type   (force *type)
                     ::http/port   8080
                     ::http/join?  false
-                    ::http/routes `#{[~path :any {:name  ::handler
-                                                  :enter ~handler}
-                                      :route-name ::hello]}}
+                    ::http/routes `#{}}
                  http/default-interceptors
-                 http/dev-interceptors
+                 #_http/dev-interceptors
+                 (assoc ::http/interceptors [(interceptor/interceptor
+                                               {:name  ::start-enter-interceptor
+                                                :enter enter})])
                  http/create-server
                  http/start)]
-    (reify AutoCloseable
+    (reify
+      ILookup
+      (valAt [this k]
+        (get server k))
+      AutoCloseable
       (close [this]
         (http/stop server)))))
 
@@ -92,6 +113,13 @@
 
 (defn send
   [server request]
-  (-> @*http-client
-    (HttpClient/.send (http-request request) body-handler)
+  (-> *http-client
+    force
+    (HttpClient/.send (http-request (merge {:server-port    (::http/port server)
+                                            :server-name    "localhost"
+                                            :request-method :get
+                                            :uri            "/"
+                                            :scheme         :http}
+                                      request))
+      body-handler)
     ring-response))
