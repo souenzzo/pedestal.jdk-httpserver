@@ -8,9 +8,8 @@ jobs:
   kondo:
     runs-on: ubuntu-latest
     steps:
-      # TODO: - uses: souenzzo/pedestal.jdk-httpserver/setup
       - uses: actions/checkout@v4.2.2
-      - uses: ./.github/setup
+      - uses: souenzzo/pedestal.jdk-httpserver/setup@236b30ce373f1f4350fd7e9d807914857682200b
       - run: clojure -M:dev:kondo
   test-runner:
     runs-on: ubuntu-latest
