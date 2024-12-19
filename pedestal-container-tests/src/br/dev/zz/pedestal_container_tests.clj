@@ -38,7 +38,6 @@
 (defn http-request
   ^HttpRequest [{:keys [uri request-method headers scheme server-name server-port query-string protocol body]
                  :as   ring-request}]
-  (def _ring-request ring-request)
   (let [uri-uri (URI. (name scheme) nil server-name server-port uri query-string nil)
         method (-> request-method name string/upper-case)
         version (when (contains? ring-request :protocol)
