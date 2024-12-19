@@ -1,0 +1,20 @@
+on:
+  workflow_call:
+    inputs: {}
+    secrets: {}
+
+jobs:
+  setup:
+    using: composite
+    steps:
+      - uses: DeLaGuardo/setup-clojure@13.1
+        with:
+          cli: 1.12.0.1488
+      - uses: actions/cache@v4.2.0
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+            .cpcache
+          key: "${{hashFiles('deps.edn')}}"
+
