@@ -37,15 +37,15 @@
                                                                               :body
                                                                               :servlet
                                                                               :headers
+                                                                              :context-path
                                                                               :servlet-request
                                                                               :servlet-response
                                                                               :servlet-context
+                                                                              :async-supported?
                                                                               :pedestal.http.impl.servlet-interceptor/protocol
                                                                               :pedestal.http.impl.servlet-interceptor/async-supported?))}
                                                :status  202})))]
-    (is (= {:async-supported? true
-            :context-path     ""
-            :path-info        "/foo/bar/baz"
+    (is (= {:path-info        "/foo/bar/baz"
             :protocol         "HTTP/1.1"
             :query-string     "surname=jones&age=123"
             :remote-addr      "127.0.0.1"

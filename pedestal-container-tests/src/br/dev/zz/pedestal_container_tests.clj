@@ -107,6 +107,7 @@
      (if (Optional/.isPresent maybe-content-type)
        (case (Optional/.get maybe-content-type)
          ("text/plain" "application/octet-stream")
+         (HttpResponse$BodySubscribers/ofString StandardCharsets/UTF_8)
          (HttpResponse$BodySubscribers/ofString StandardCharsets/UTF_8))
        (HttpResponse$BodySubscribers/ofString StandardCharsets/UTF_8)))))
 
