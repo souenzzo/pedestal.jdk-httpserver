@@ -3,9 +3,6 @@
             [clojure.edn :as edn]
             [clojure.test :refer [deftest is]]))
 
-(comment
-  (System/setProperty "br.dev.zz.pedestal-container-tests.type" ":jetty"))
-
 (deftest response-with-text-plain
   (with-open [server (pct/start-enter-interceptor
                        (fn [ctx]
@@ -16,8 +13,6 @@
             :headers
             (get "content-type"))))))
 
-
-
 (deftest response-with-text-plain-and-more
   (with-open [server (pct/start-enter-interceptor
                        (fn [ctx]
@@ -27,8 +22,6 @@
           (-> (pct/send server {})
             :headers
             (get "content-type"))))))
-
-
 
 (deftest echo-on-headers
   (with-open [server (pct/start-enter-interceptor
@@ -59,4 +52,5 @@
 
             :headers
             (get "request-map")
-            edn/read-string)))))
+            edn/read-string
+            (select-keys [:protocol :remote-addr :server-port :path-info :uri :server-name :query-string :scheme :request-method]))))))
