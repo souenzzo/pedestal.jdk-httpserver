@@ -9,19 +9,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.2.2
-      - uses: ./.github/actions/setup.yml
+      - uses: ./.github/setup
       - run: clojure -M:dev:kondo
   test-runner:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.2.2
-      - uses: ./.github/actions/setup.yml
+      - uses: ./.github/setup
       - run: clojure -M:dev:test-runner
   pedestal-container-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.2.2
-      - uses: ./.github/actions/setup.yml
+      - uses: ./.github/setup
       - run: clojure -M:dev:pedestal-container-tests
 
 ## docker run --rm  -v.:/app:ro "-v$HOME/.m2:/root/.m2:ro" "-v$HOME/.gitlibs:/root/.gitlibs:ro" -w/app --mount type=tmpfs,dst=/app/.cpcache clojure:tools-deps-alpine clojure -M:dev:test-runner
