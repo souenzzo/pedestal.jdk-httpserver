@@ -51,3 +51,16 @@
             (get "request-map")
             edn/read-string
             (select-keys [:protocol :remote-addr :server-port :path-info :uri :server-name :query-string :scheme :request-method]))))))
+
+(deftest standard-headers
+  (with-open [server (pct/start-enter-interceptor
+                       (fn [ctx]
+                         (assoc ctx :response {:status 202})))]
+    (is (= #{"date" "transfer-encoding"}
+          (-> (pct/send server {:uri          "/foo/bar/baz"
+                                :query-string "surname=jones&age=123"})
+
+            :headers
+            keys
+            set)))))
+

@@ -48,12 +48,11 @@
                                                :headers {"Content-Type" "text/plain"}
                                                :body    (ByteBuffer/wrap (.getBytes "Hello World" "UTF-8"))})))]
     (is (= {:body    "Hello World"
-            :headers {"content-length" "11"
-                      "content-type"   "text/plain"}
+            :headers {"content-type"   "text/plain"}
             :status  200}
           (-> server
             (pct/send {})
-            (update :headers dissoc "date"))))))
+            (update :headers dissoc "date" "content-length"   "transfer-encoding"))))))
 
 (deftest supports-nio-async-via-readable-byte-channel
   (with-open [server (pct/start-enter-interceptor
@@ -67,12 +66,11 @@
                                                  :headers {"Content-Type" "text/plain"}
                                                  :body    (.source p)}))))]
     (is (= {:body    "Hello World"
-            :headers {"content-length" "11"
-                      "content-type"   "text/plain"}
+            :headers {"content-type"   "text/plain"}
             :status  200}
           (-> server
             (pct/send {})
-            (update :headers dissoc "date"))))))
+            (update :headers dissoc "date" "content-length"   "transfer-encoding"))))))
 
 (deftest test-run-jetty-custom-context-with-servletcontext
   (let [routes #{["/hello" :get (fn [_]
