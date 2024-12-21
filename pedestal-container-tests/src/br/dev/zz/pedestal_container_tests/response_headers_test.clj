@@ -29,12 +29,9 @@
                          (assoc ctx :response {:headers {"request-map" (str (dissoc request
                                                                               :body
                                                                               :servlet
-                                                                              :headers
-                                                                              :context-path
                                                                               :servlet-request
                                                                               :servlet-response
                                                                               :servlet-context
-                                                                              :async-supported?
                                                                               :pedestal.http.impl.servlet-interceptor/protocol
                                                                               :pedestal.http.impl.servlet-interceptor/async-supported?))}
                                                :status  202})))]

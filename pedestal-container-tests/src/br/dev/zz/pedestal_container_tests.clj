@@ -4,6 +4,7 @@
             [clojure.string :as string]
             [io.pedestal.http :as http]
             [io.pedestal.interceptor :as interceptor]
+            [io.pedestal.log :as log]
             [ring.core.protocols])
   (:import (clojure.lang ILookup)
            (java.lang AutoCloseable)
@@ -23,17 +24,17 @@
       (HttpClient$Builder/.version HttpClient$Version/HTTP_1_1)
       .build)))
 
-(def ^:dynamic *type
-  (delay
-    (let [type (some-> "br.dev.zz.pedestal-container-tests.type"
-                 System/getProperty
-                 (or (System/getenv "PEDESTAL_CONTAINER_TESTS_TYPE"))
-                 edn/read-string)]
-      (cond
-        (keyword? type) type
-        (symbol? type) @(requiring-resolve type)
-        :else (throw (ex-info "Can't find pedestal container tests type"
-                       {:type type}))))))
+(defn ^:dynamic http-type
+  []
+  (let [type (some-> "br.dev.zz.pedestal-container-tests.type"
+               System/getProperty
+               (or (System/getenv "PEDESTAL_CONTAINER_TESTS_TYPE"))
+               edn/read-string)]
+    (cond
+      (keyword? type) type
+      (symbol? type) @(requiring-resolve type)
+      :else (throw (ex-info "Can't find pedestal container tests type"
+                     {:type type})))))
 
 (defn http-request
   ^HttpRequest [{:keys [uri request-method headers scheme server-name server-port query-string protocol body]
@@ -61,10 +62,30 @@
                           (Optional/of body)
                           (Optional/empty))))))
 
+(defn start
+  ^AutoCloseable
+  [service-map]
+  (let [server (-> {::http/type   (http-type)
+                    ::http/port   8080
+                    ::http/join?  false}
+                 (merge service-map)
+                 http/default-interceptors
+                 #_http/dev-interceptors
+                 http/create-server
+                 http/start)]
+    (reify
+      ILookup
+      (valAt [this k]
+        (get server k))
+      AutoCloseable
+      (close [this]
+        (http/stop server)))))
+
+
 (defn start-enter-interceptor
   ^AutoCloseable
   [enter]
-  (let [server (-> {::http/type   (force *type)
+  (let [server (-> {::http/type   (http-type)
                     ::http/port   8080
                     ::http/join?  false
                     ::http/routes `#{}}
@@ -105,10 +126,13 @@
   ([response-info]
    (let [maybe-content-type (HttpHeaders/.firstValue (HttpResponse$ResponseInfo/.headers response-info) "Content-Type")]
      (if (Optional/.isPresent maybe-content-type)
-       (case (Optional/.get maybe-content-type)
-         ("text/plain" "application/octet-stream")
-         (HttpResponse$BodySubscribers/ofString StandardCharsets/UTF_8)
-         (HttpResponse$BodySubscribers/ofString StandardCharsets/UTF_8))
+       (let [content-type (Optional/.get maybe-content-type)]
+         (case content-type
+           ("text/plain" "application/octet-stream")
+           (HttpResponse$BodySubscribers/ofString StandardCharsets/UTF_8)
+           (do
+             (log/warn :message "Unknown content-type" :content-type content-type)
+             (HttpResponse$BodySubscribers/ofString StandardCharsets/UTF_8))))
        (HttpResponse$BodySubscribers/ofString StandardCharsets/UTF_8)))))
 
 (defn send
