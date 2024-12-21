@@ -98,7 +98,9 @@
         *out (delay
                (let [out (Socket/.getOutputStream client-socket)]
                  (.write out (.getBytes (str "HTTP/1.1 " @*status " OK\r\n")))
-                 (doseq [[k v] (assoc @*headers "Date" [(date-header (Instant/now))])])
+                 (doseq [[k vs] (assoc @*headers "Date" [(date-header (Instant/now))])
+                         v vs]
+                   (.write out (.getBytes (str k ": " v "\r\n"))))
                  (.write out (.getBytes (str "\r\n")))
                  (.write out (.getBytes (str "\r\n")))
                  out))]
