@@ -9,7 +9,9 @@
            (jakarta.servlet.http HttpServletRequest HttpServletResponse)
            (java.io BufferedReader InputStream OutputStream)
            (java.lang AutoCloseable)
-           (java.net InetSocketAddress ServerSocket Socket)
+           (java.net InetAddress ServerSocket Socket)
+           (java.time Instant LocalDateTime ZoneId ZoneOffset)
+           (java.time.format DateTimeFormatter)
            (java.util Collections)))
 
 (set! *warn-on-reflection* true)
@@ -25,19 +27,19 @@
         [_ request-method path protocol] (re-find #"([^\s]+)\s([^\s]+)\s([^\s]+)" req-line)
         [path query-string] (string/split path #"\?" 2)
         headers (into {}
-                  (fn [header-line]
-                    (let [[k v] (string/split header-line #":\s{0,}" 2)]
-                      [(string/lower-case k)
-                       v]))
+                  (map (fn [header-line]
+                         (let [[k v] (string/split header-line #":\s{0,}" 2)]
+                           [(string/lower-case k)
+                            v])))
                   header-lines)
         *attributes (atom {})]
     (reify HttpServletRequest
       (getProtocol [_this] protocol)
-      (getMethod [_this] (-> request-method string/lower-case keyword))
-      (getContentLengthLong [this] (or (some-> headers
-                                         (get "content-length")
-                                         parse-long)
-                                     -1))
+      (getMethod [_this] request-method)
+      (getContentLengthLong [_this] (or (some-> headers
+                                          (get "content-length")
+                                          parse-long)
+                                      -1))
       (getContentType [this] (get headers "content-type"))
       (setAttribute [_this name o]
         (swap! *attributes assoc name o))
@@ -53,7 +55,6 @@
              (InputStream/.read in b off len)))
           (close []
             (AutoCloseable/.close in))))
-      (getInputStream [_this] in)
       #_(getAsyncContext [_this]
           (reify AsyncContext
             ;; TODO
@@ -75,19 +76,32 @@
       (isAsyncSupported [_this] false)
       #_(startAsync [this] @*async-context
           (.getAsyncContext this))
-      #_(isAsyncStarted [_this] (realized? *async-context))
+      (isAsyncStarted [_this] (realized? *async-context))
       (getRemoteAddr [_this] "localhost")
       (getServerPort [_this] 8080)
       (getHeaderNames [_this] (Collections/enumeration (keys headers)))
       (getHeaders [_this name] (Collections/enumeration [(get headers name)]))
       (getHeader [_this name] (get headers name)))))
 
+(defn date-header
+  [inst]
+  (.format DateTimeFormatter/RFC_1123_DATE_TIME
+    (.atOffset (LocalDateTime/ofInstant inst
+                 (ZoneId/of "GMT"))
+      ZoneOffset/UTC)))
+
 (defn ->http-servlet-response
   [client-socket *async-context]
   (let [*status (atom 200)
         *headers (atom {})
         *content-length (atom 0)
-        *out (delay (Socket/.getOutputStream client-socket))]
+        *out (delay
+               (let [out (Socket/.getOutputStream client-socket)]
+                 (.write out (.getBytes (str "HTTP/1.1 " @*status " OK\r\n")))
+                 (doseq [[k v] (assoc @*headers "Date" [(date-header (Instant/now))])])
+                 (.write out (.getBytes (str "\r\n")))
+                 (.write out (.getBytes (str "\r\n")))
+                 out))]
     (reify HttpServletResponse
       (getOutputStream [_]
         (proxy [ServletOutputStream] []
@@ -110,6 +124,8 @@
       (setContentLengthLong [_ content-length]
         (reset! *content-length (long content-length)))
       (flushBuffer [_]
+        (OutputStream/.flush @*out)
+        (OutputStream/.close @*out)
         #_(try
             (OutputStream/.flush @*response-body)
             (catch IOException _))
@@ -130,38 +146,42 @@
   (let [{:keys [context-path configurator #_ssl-port #_insecure-ssl? #_keystore #_ssl?]
          :or   {context-path "/"
                 configurator identity}} container-options
-        *async-context nil #_(delay
-                               (let [c (async/chan)]
-                                 (future
-                                   (loop []
-                                     (when-let [{:keys [body resume-chan context ^OutputStream response-body]} (async/<!! c)]
-                                       (try
-                                         (if (instance? ByteBuffer body)
-                                           (.write (Channels/newChannel response-body) body)
-                                           ;; TODO: Review performance!
-                                           (let [bb (ByteBuffer/allocate #_0x10000 65536)]
-                                             (loop []
-                                               (let [n (ReadableByteChannel/.read body bb)]
-                                                 (when (pos-int? n)
-                                                   (.write response-body (.array bb) 0 n)
-                                                   (.clear bb)
-                                                   (recur))))))
-                                         (async/put! resume-chan context)
-                                         (async/close! resume-chan)
-                                         (catch Throwable error
-                                           (async/put! resume-chan (assoc context :io.pedestal.impl.interceptor/error error))
-                                           (async/close! resume-chan)))
-                                       (recur))))
-                                 c))
+        *async-context (delay
+                         #_(let [c (async/chan)]
+                             (future
+                               (loop []
+                                 (when-let [{:keys [body resume-chan context ^OutputStream response-body]} (async/<!! c)]
+                                   (try
+                                     (if (instance? ByteBuffer body)
+                                       (.write (Channels/newChannel response-body) body)
+                                       ;; TODO: Review performance!
+                                       (let [bb (ByteBuffer/allocate #_0x10000 65536)]
+                                         (loop []
+                                           (let [n (ReadableByteChannel/.read body bb)]
+                                             (when (pos-int? n)
+                                               (.write response-body (.array bb) 0 n)
+                                               (.clear bb)
+                                               (recur))))))
+                                     (async/put! resume-chan context)
+                                     (async/close! resume-chan)
+                                     (catch Throwable error
+                                       (async/put! resume-chan (assoc context :io.pedestal.impl.interceptor/error error))
+                                       (async/close! resume-chan)))
+                                   (recur))))
+                             c))
         http-handler (fn [client-socket]
-                       (Servlet/.service servlet
-                         (->http-servlet-request client-socket *async-context)
-                         (->http-servlet-response client-socket *async-context)))
-        *addr (delay (if (string? host)
-                       (InetSocketAddress. ^String host (int port))
-                       (InetSocketAddress. port)))
+                       (try
+                         (Servlet/.service servlet
+                           (->http-servlet-request client-socket *async-context)
+                           (->http-servlet-response client-socket *async-context))
+                         (catch Throwable ex
+                           (def _ex ex)
+                           (throw ex))))
         *socket-server (delay
-                         (let [server-socket (ServerSocket. port 0 *addr)]
+                         (let [server-socket
+                               (if host
+                                 (ServerSocket. port 0 (InetAddress/getByName host))
+                                 (ServerSocket. port 0))]
                            (future
                              (loop []
                                (with-open [client-socket (.accept server-socket)]

@@ -2,6 +2,9 @@
   (:require [br.dev.zz.pedestal-container-tests :as pct]
             [clojure.test :refer [deftest is]]))
 
+(comment
+  (System/setProperty "br.dev.zz.pedestal-container-tests.type" "br.dev.zz.pedestal.socket-server-container/server"))
+
 (deftest simple-202-status
   (with-open [server (pct/start-enter-interceptor
                        (fn [ctx]
